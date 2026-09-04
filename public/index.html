@@ -24,9 +24,9 @@
             <path class="diamond-inner" d="M24 12 36 28 24 44 12 28Z"/>
           </svg>
         </span>
-        <span class="brand-name">A&J MANAGEMENT</span>
+        <span class="brand-name">A&amp;J Management</span>
       </a>
-      <div class="secure-pill"><span class="secure-dot" aria-hidden="true"></span><span data-i18n="securePayment">Secure Payment</span></div>
+      <div class="secure-pill"><span class="secure-dot" aria-hidden="true"></span><span data-i18n="secure">Secure</span></div>
     </div></header>
     <main>
       <section class="portal" aria-labelledby="page-title">
@@ -34,7 +34,7 @@
           <h1 id="page-title" data-i18n="lookupTitle">Pay an invoice securely</h1>
           <p class="lookup-copy" data-i18n="lookupCopy">Enter the invoice number from your payment notice to view your bill.</p>
           <form class="lookup-form" id="lookup-form">
-            <label for="invoice-number" data-i18n="invoiceNumber">Invoice number</label>
+            <label for="invoice-number" data-i18n="invoiceNumber">Invoice Number</label>
             <input id="invoice-number" name="invoiceNumber" autocomplete="off" autocapitalize="characters" placeholder="Enter invoice number" data-i18n-placeholder="invoicePlaceholder" required>
             <button class="pay" type="submit" data-i18n="findInvoice">Find invoice</button>
             <p class="message" id="lookup-message" role="status" aria-live="polite"></p>
@@ -48,14 +48,14 @@
           <article class="invoice" id="invoice-card">
             <div class="meta">
               <div><span class="label" data-i18n="client">Client</span><span class="value">Kevin Lütolf</span></div>
-              <div><span class="label" data-i18n="dueDate">Due date</span><span class="value" data-i18n="dueDateValue">September 7, 2026</span></div>
+              <div><span class="label" data-i18n="dueDate">Due Date</span><span class="value" data-i18n="dueDateValue">September 7, 2026</span></div>
               <div class="wide"><span class="label" data-i18n="reference">Reference</span><span class="value" data-i18n="referenceValue">Contract Termination File #KLTA2026001</span></div>
             </div>
             <div class="payment">
-              <div class="balance-label" data-i18n="balanceDue">Balance due</div>
+              <div class="balance-label" data-i18n="balanceDue">Balance Due</div>
               <div class="balance"><span id="balance">$5,000.00</span> <small id="balance-currency">USD</small></div>
               <form class="payment-form" id="payment-form">
-                <label for="currency" data-i18n="viewBalance">View balance in</label>
+                <label for="currency" data-i18n="viewBalance">View Balance In</label>
                 <select id="currency" name="currency">
                   <option value="USD">USD ($)</option>
                   <option value="CAD">CAD ($)</option>
@@ -63,7 +63,7 @@
                   <option value="GBP">GBP (£)</option>
                   <option value="CHF">CHF (CHF)</option>
                 </select>
-                <label for="payment-amount" data-i18n="paymentAmount">Payment amount</label>
+                <label for="payment-amount" data-i18n="paymentAmount">Payment Amount</label>
                 <div class="amount-field"><span id="amount-currency">USD</span><input id="payment-amount" value="0.00" inputmode="decimal" aria-describedby="payment-note payment-message"></div>
                 <button class="pay" id="pay-button" type="submit" data-i18n="payNow">Pay Now</button>
                 <p class="payment-note" id="payment-note" data-i18n="paymentNote">Card payments are processed securely.</p>
@@ -76,7 +76,7 @@
     </main>
     <footer><div class="footer-inner">
       <div class="footer-company">
-        <div class="footer-brand"><span class="footer-brand-mark" aria-hidden="true"><svg viewBox="0 0 48 56" focusable="false"><path class="diamond-outer" d="M24 1 47 28 24 55 1 28Z"/><path class="diamond-inner" d="M24 12 36 28 24 44 12 28Z"/></svg></span><strong>A&amp;J MANAGEMENT</strong></div>
+        <div class="footer-brand"><span class="footer-brand-mark" aria-hidden="true"><svg viewBox="0 0 48 56" focusable="false"><path class="diamond-outer" d="M24 1 47 28 24 55 1 28Z"/><path class="diamond-inner" d="M24 12 36 28 24 44 12 28Z"/></svg></span><strong>A&amp;J Management</strong></div>
         <span data-i18n="department">Legal Department &amp; Talent Management</span><span>Bahnhofstrasse 45, 8001 Zürich, Switzerland</span>
       </div>
       <div class="footer-contact"><strong data-i18n="contact">Contact</strong><span data-i18n="email">Email: legal@ajmanagement.ch</span><span data-i18n="phone">Phone: +44 333 057 1439</span><span data-i18n="hours">Hours: Mon-Fri 9:00 — 17:00 CET</span></div>

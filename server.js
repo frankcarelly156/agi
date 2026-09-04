@@ -6,7 +6,6 @@ import express from 'express';
 import helmet from 'helmet';
 import { rateLimit } from 'express-rate-limit';
 import Stripe from 'stripe';
-import { createInvoiceRepository, openDatabase } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Public invoice references are deliberately constrained, while allowing the
@@ -15,6 +14,7 @@ const invoicePattern = /^[A-Z0-9](?:[A-Z0-9-]{0,62}[A-Z0-9])?$/;
 const sessionPattern = /^cs_(?:test_|live_)?[A-Za-z0-9]{20,}$/;
 const minimumPayment = 50_000;
 const maximumPayment = 500_000;
+const statelessInvoiceNumber = 'INV2026001';
 
 function parsePaymentAmount(value) {
   const text = String(value || '').trim();
@@ -61,6 +61,10 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
     }
 
     try {
+      if (!invoices) {
+        logger.info('stripe_webhook_received', { eventId: event.id, type: event.type });
+        return res.sendStatus(200);
+      }
       if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
         const result = invoices.completeCheckout(event, event.data.object);
         logger.info('stripe_checkout_completed', { eventId: event.id, result });
@@ -109,6 +113,15 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
   app.get('/api/invoices/:invoiceNumber', lookupLimiter, (req, res) => {
     const invoiceNumber = req.params.invoiceNumber.trim().toUpperCase();
     if (!invoicePattern.test(invoiceNumber)) return res.status(400).json({ error: 'Invalid invoice number' });
+    if (!invoices) {
+      if (invoiceNumber.replaceAll('-', '') !== statelessInvoiceNumber) return res.status(404).json({ error: 'Invoice not found' });
+      return res.json({
+        invoice_number: statelessInvoiceNumber,
+        amount: maximumPayment,
+        currency: 'usd',
+        status: 'pending'
+      });
+    }
     const invoice = invoices.findPublic(invoiceNumber);
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
     return res.json({
@@ -128,43 +141,46 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
     if (paymentAmount === null || paymentAmount < minimumPayment || paymentAmount > maximumPayment) {
       return res.status(400).json({ error: 'Payment amount must be between $500.00 and $5,000.00' });
     }
-    const invoice = invoices.findFull(invoiceNumber);
-    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
-    if (invoice.status === 'paid') return res.status(409).json({ error: 'Invoice is already paid' });
-    const remainingBalance = invoice.amount - invoices.getPaidTotal(invoice.id);
+    const normalizedInvoiceNumber = invoiceNumber.replaceAll('-', '');
+    if (!invoices && normalizedInvoiceNumber !== statelessInvoiceNumber) return res.status(404).json({ error: 'Invoice not found' });
+    const invoice = invoices?.findFull(invoiceNumber);
+    if (invoices && !invoice) return res.status(404).json({ error: 'Invoice not found' });
+    if (invoice?.status === 'paid') return res.status(409).json({ error: 'Invoice is already paid' });
+    const remainingBalance = invoice ? invoice.amount - invoices.getPaidTotal(invoice.id) : maximumPayment;
     if (paymentAmount > remainingBalance) return res.status(409).json({ error: 'Payment amount exceeds the remaining balance' });
-    if (!invoices.acquireCheckoutLock(invoiceNumber)) return res.status(409).json({ error: 'Checkout is already being prepared. Please retry shortly.' });
+    if (invoice && !invoices.acquireCheckoutLock(invoiceNumber)) return res.status(409).json({ error: 'Checkout is already being prepared. Please retry shortly.' });
 
     try {
       const session = await stripeClient.checkout.sessions.create({
         mode: 'payment',
-        customer_email: invoice.email,
         line_items: [{
           price_data: {
-            currency: invoice.currency,
-            product_data: { name: `Invoice ${invoice.invoice_number}` },
+            currency: invoice?.currency || 'usd',
+            product_data: { name: `A&J Management invoice ${statelessInvoiceNumber}` },
             unit_amount: paymentAmount
           },
           quantity: 1
         }],
-        metadata: { invoice_number: invoice.invoice_number },
-        payment_intent_data: { metadata: { invoice_number: invoice.invoice_number } },
+        metadata: { invoice_number: invoice?.invoice_number || statelessInvoiceNumber },
+        payment_intent_data: { metadata: { invoice_number: invoice?.invoice_number || statelessInvoiceNumber } },
         success_url: `${baseUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/?invoice=${encodeURIComponent(invoice.invoice_number)}`,
+        cancel_url: `${baseUrl}/`,
         expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         integration_identifier: integrationIdentifier
       }, {
-        idempotencyKey: `invoice-checkout-${invoice.id}-${paymentAmount}-${Math.floor(Date.now() / (30 * 60 * 1000))}`
+        idempotencyKey: `invoice-checkout-${invoice?.id || statelessInvoiceNumber}-${paymentAmount}-${Math.floor(Date.now() / (30 * 60 * 1000))}`
       });
-      invoices.saveCheckout({
-        invoiceNumber,
-        sessionId: session.id,
-        url: session.url,
-        expiresAt: session.expires_at
-      });
+      if (invoice) {
+        invoices.saveCheckout({
+          invoiceNumber,
+          sessionId: session.id,
+          url: session.url,
+          expiresAt: session.expires_at
+        });
+      }
       return res.status(201).json({ url: session.url });
     } catch (error) {
-      invoices.releaseCheckoutLock(invoiceNumber);
+      if (invoice) invoices.releaseCheckoutLock(invoiceNumber);
       logger.error('checkout_session_creation_failed', { invoiceNumber, type: error.type, code: error.code });
       return res.status(502).json({ error: 'Unable to start payment. Please try again.' });
     }
@@ -173,6 +189,7 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
   app.get('/api/payment-status', lookupLimiter, (req, res) => {
     const sessionId = String(req.query.session_id || '');
     if (!sessionPattern.test(sessionId)) return res.status(400).json({ error: 'Invalid session identifier' });
+    if (!invoices) return res.status(404).json({ error: 'Payment status is not stored' });
     const invoice = invoices.findStatusBySession(sessionId);
     if (!invoice) return res.status(404).json({ error: 'Payment not found' });
     const payment = invoices.findPaymentBySession(sessionId);
@@ -200,15 +217,12 @@ export function startServer(env = process.env) {
     maxNetworkRetries: 2,
     timeout: 20_000
   });
-  const db = openDatabase(env.DATABASE_PATH);
-  const invoices = createInvoiceRepository(db);
-  const app = createApp({ stripeClient, invoices, env });
+  const app = createApp({ stripeClient, env });
   const port = Number(env.PORT || 4242);
   const server = app.listen(port, () => console.log(`Invoice portal listening on port ${port}`));
   const shutdown = signal => {
     console.log(`${signal} received, shutting down`);
     server.close(() => {
-      db.close();
       process.exit(0);
     });
   };

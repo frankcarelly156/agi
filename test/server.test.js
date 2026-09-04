@@ -2,30 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createApp } from '../server.js';
 
-function startFixture(overrides = {}) {
-  const invoice = {
-    id: 1,
-    invoice_number: 'INVABC12345',
-    client_name: 'Example Client',
-    email: 'billing@example.com',
-    amount: 250000,
-    currency: 'usd',
-    due_date: '2026-09-30',
-    status: 'pending'
-  };
-  const invoices = {
-    findPublic: number => number === invoice.invoice_number ? invoice : undefined,
-    findFull: number => number === invoice.invoice_number ? invoice : undefined,
-    findStatusBySession: () => ({ status: 'pending' }),
-    findPaymentBySession: () => undefined,
-    getPaidTotal: () => 0,
-    acquireCheckoutLock: () => true,
-    releaseCheckoutLock: () => {},
-    saveCheckout: () => {},
-    completeCheckout: () => ({ paid: true }),
-    recordFailure: () => ({ failed: true }),
-    ...overrides.invoices
-  };
+function startFixture() {
   let checkoutPayload;
   const stripeClient = {
     checkout: {
@@ -40,7 +17,6 @@ function startFixture(overrides = {}) {
   };
   const app = createApp({
     stripeClient,
-    invoices,
     env: { PUBLIC_BASE_URL: 'https://payments.example.com', STRIPE_WEBHOOK_SECRET: 'whsec_example' },
     logger: { info() {}, warn() {}, error() {} }
   });
@@ -52,33 +28,44 @@ function startFixture(overrides = {}) {
   };
 }
 
-test('invoice lookup returns database amount and omits email', async t => {
+test('stateless invoice lookup returns the configured public amount', async t => {
   const fixture = startFixture();
   t.after(() => fixture.server.close());
-  const response = await fetch(`${fixture.baseUrl}/api/invoices/INVABC12345`);
+  const response = await fetch(`${fixture.baseUrl}/api/invoices/INV2026001`);
   assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.amount, 250000);
+  assert.equal(body.amount, 500000);
   assert.equal(Object.hasOwn(body, 'email'), false);
 });
 
-test('hyphenated invoice references pass validation', async t => {
+test('hyphenated invoice references resolve to the stateless invoice', async t => {
   const fixture = startFixture();
   t.after(() => fixture.server.close());
   const response = await fetch(`${fixture.baseUrl}/api/invoices/INV-2026-001`);
-  assert.equal(response.status, 404);
+  assert.equal(response.status, 200);
 });
 
-test('checkout uses the invoice amount and metadata', async t => {
+test('checkout accepts only a server-validated payment amount', async t => {
   const fixture = startFixture();
   t.after(() => fixture.server.close());
   const response = await fetch(`${fixture.baseUrl}/api/create-checkout-session`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ invoiceNumber: 'INVABC12345', paymentAmount: '500.00', amount: 1 })
+    body: JSON.stringify({ invoiceNumber: 'INV2026001', paymentAmount: '500.00', amount: 1 })
   });
   assert.equal(response.status, 201);
   const payload = fixture.getCheckoutPayload();
   assert.equal(payload.line_items[0].price_data.unit_amount, 50000);
-  assert.equal(payload.metadata.invoice_number, 'INVABC12345');
+  assert.equal(payload.metadata.invoice_number, 'INV2026001');
+});
+
+test('checkout rejects payment amounts outside the permitted range', async t => {
+  const fixture = startFixture();
+  t.after(() => fixture.server.close());
+  const response = await fetch(`${fixture.baseUrl}/api/create-checkout-session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ invoiceNumber: 'INV2026001', paymentAmount: '499.99' })
+  });
+  assert.equal(response.status, 400);
 });
