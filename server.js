@@ -42,7 +42,7 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
   const baseUrl = safeBaseUrl(required('PUBLIC_BASE_URL', env));
   const webhookSecret = required('STRIPE_WEBHOOK_SECRET', env);
   const integrationIdentifier = env.STRIPE_INTEGRATION_IDENTIFIER ||
-    `invoiceportal${crypto.randomBytes(6).toString('hex').slice(0, 8)}`;
+    'invoiceportal';
 
   if (env.TRUST_PROXY) app.set('trust proxy', Number(env.TRUST_PROXY));
   app.disable('x-powered-by');
@@ -151,6 +151,9 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
     if (invoice && !invoices.acquireCheckoutLock(invoiceNumber)) return res.status(409).json({ error: 'Checkout is already being prepared. Please retry shortly.' });
 
     try {
+      const checkoutWindowSeconds = 30 * 60;
+      const checkoutWindow = Math.floor(Date.now() / 1000 / checkoutWindowSeconds);
+      const expiresAt = (checkoutWindow + 1) * checkoutWindowSeconds;
       const session = await stripeClient.checkout.sessions.create({
         mode: 'payment',
         line_items: [{
@@ -165,10 +168,10 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
         payment_intent_data: { metadata: { invoice_number: invoice?.invoice_number || statelessInvoiceNumber } },
         success_url: `${baseUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${baseUrl}/?invoice=${statelessInvoiceNumber}`,
-        expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+        expires_at: expiresAt,
         integration_identifier: integrationIdentifier
       }, {
-        idempotencyKey: `invoice-checkout-${invoice?.id || statelessInvoiceNumber}-${paymentAmount}-${Math.floor(Date.now() / (30 * 60 * 1000))}`
+        idempotencyKey: `invoice-checkout-v2-${invoice?.id || statelessInvoiceNumber}-${paymentAmount}-${checkoutWindow}`
       });
       if (invoice) {
         invoices.saveCheckout({
@@ -181,7 +184,7 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
       return res.status(201).json({ url: session.url });
     } catch (error) {
       if (invoice) invoices.releaseCheckoutLock(invoiceNumber);
-      logger.error('checkout_session_creation_failed', { invoiceNumber, type: error.type, code: error.code });
+      logger.error('checkout_session_creation_failed', { invoiceNumber, type: error.type, code: error.code, message: error.message });
       return res.status(502).json({ error: 'Unable to start payment. Please try again.' });
     }
   });

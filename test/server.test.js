@@ -3,12 +3,12 @@ import test from 'node:test';
 import { createApp } from '../server.js';
 
 function startFixture() {
-  let checkoutPayload;
+  const checkoutCalls = [];
   const stripeClient = {
     checkout: {
       sessions: {
-        create: async payload => {
-          checkoutPayload = payload;
+        create: async (payload, options) => {
+          checkoutCalls.push({ payload, options });
           return { id: 'cs_live_12345678901234567890', url: 'https://checkout.stripe.com/example', expires_at: 1788136200 };
         }
       }
@@ -24,7 +24,8 @@ function startFixture() {
   return {
     server,
     baseUrl: `http://127.0.0.1:${server.address().port}`,
-    getCheckoutPayload: () => checkoutPayload
+    getCheckoutPayload: () => checkoutCalls.at(-1)?.payload,
+    getCheckoutCalls: () => checkoutCalls
   };
 }
 
@@ -68,4 +69,20 @@ test('checkout rejects payment amounts outside the permitted range', async t => 
     body: JSON.stringify({ invoiceNumber: 'INV2026001', paymentAmount: '499.99' })
   });
   assert.equal(response.status, 400);
+});
+
+test('repeat checkout requests reuse identical idempotency parameters', async t => {
+  const fixture = startFixture();
+  t.after(() => fixture.server.close());
+  const request = () => fetch(`${fixture.baseUrl}/api/create-checkout-session`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ invoiceNumber: 'INV2026001', paymentAmount: '500.00' })
+  });
+  const [first, second] = await Promise.all([request(), request()]);
+  assert.equal(first.status, 201);
+  assert.equal(second.status, 201);
+  const [firstCall, secondCall] = fixture.getCheckoutCalls();
+  assert.equal(firstCall.options.idempotencyKey, secondCall.options.idempotencyKey);
+  assert.equal(firstCall.payload.expires_at, secondCall.payload.expires_at);
 });
