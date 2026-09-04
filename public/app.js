@@ -63,6 +63,12 @@ function renderBalance() {
   balanceCurrency.textContent = selectedCurrency;
 }
 
+function showInvoiceFlow() {
+  lookupMessage.textContent = '';
+  lookupPanel.hidden = true;
+  invoiceFlow.hidden = false;
+}
+
 currency.addEventListener('change', renderBalance);
 lookupForm.addEventListener('submit', async event => {
   event.preventDefault();
@@ -79,10 +85,8 @@ lookupForm.addEventListener('submit', async event => {
     lookupButton.textContent = t('findInvoice');
     return;
   }
-  lookupMessage.textContent = '';
   loadingOverlay.hidden = true;
-  lookupPanel.hidden = true;
-  invoiceFlow.hidden = false;
+  showInvoiceFlow();
   document.getElementById('currency').focus();
 });
 form.addEventListener('submit', async event => {
@@ -116,3 +120,8 @@ form.addEventListener('submit', async event => {
 });
 renderBalance();
 detectLocale();
+
+const returnInvoice = new URLSearchParams(location.search).get('invoice');
+if (returnInvoice?.replace(/^#/, '').replaceAll('-', '').toUpperCase() === 'INV2026001') {
+  showInvoiceFlow();
+}

@@ -164,7 +164,7 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
         metadata: { invoice_number: invoice?.invoice_number || statelessInvoiceNumber },
         payment_intent_data: { metadata: { invoice_number: invoice?.invoice_number || statelessInvoiceNumber } },
         success_url: `${baseUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}/`,
+        cancel_url: `${baseUrl}/?invoice=${statelessInvoiceNumber}`,
         expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         integration_identifier: integrationIdentifier
       }, {
