@@ -17,6 +17,8 @@ function startFixture(overrides = {}) {
     findPublic: number => number === invoice.invoice_number ? invoice : undefined,
     findFull: number => number === invoice.invoice_number ? invoice : undefined,
     findStatusBySession: () => ({ status: 'pending' }),
+    findPaymentBySession: () => undefined,
+    getPaidTotal: () => 0,
     acquireCheckoutLock: () => true,
     releaseCheckoutLock: () => {},
     saveCheckout: () => {},
@@ -60,16 +62,23 @@ test('invoice lookup returns database amount and omits email', async t => {
   assert.equal(Object.hasOwn(body, 'email'), false);
 });
 
+test('hyphenated invoice references pass validation', async t => {
+  const fixture = startFixture();
+  t.after(() => fixture.server.close());
+  const response = await fetch(`${fixture.baseUrl}/api/invoices/INV-2026-001`);
+  assert.equal(response.status, 404);
+});
+
 test('checkout uses the invoice amount and metadata', async t => {
   const fixture = startFixture();
   t.after(() => fixture.server.close());
   const response = await fetch(`${fixture.baseUrl}/api/create-checkout-session`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ invoiceNumber: 'INVABC12345', amount: 1 })
+    body: JSON.stringify({ invoiceNumber: 'INVABC12345', paymentAmount: '500.00', amount: 1 })
   });
   assert.equal(response.status, 201);
   const payload = fixture.getCheckoutPayload();
-  assert.equal(payload.line_items[0].price_data.unit_amount, 250000);
+  assert.equal(payload.line_items[0].price_data.unit_amount, 50000);
   assert.equal(payload.metadata.invoice_number, 'INVABC12345');
 });

@@ -15,6 +15,10 @@ async function checkStatus() {
       statusMessage.textContent = 'Payment confirmed. This invoice is paid.';
       return;
     }
+    if (data.status === 'partial') {
+      statusMessage.textContent = `Payment confirmed. Remaining balance: $${(data.remaining / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD.`;
+      return;
+    }
     attempts += 1;
     if (attempts < 10) return setTimeout(checkStatus, 1500);
     statusMessage.textContent = 'Payment confirmation is still processing. You may close this page.';

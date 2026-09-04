@@ -3,53 +3,85 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Secure invoice lookup and card payment portal.">
-  <title>Invoice Payment Portal</title>
+  <meta name="description" content="A&J Management secure payment portal." id="page-description">
+  <title>A&J Management | Payment Portal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/styles.css">
-  <script src="/app.js" defer></script>
+  <link rel="stylesheet" href="styles.css">
+  <script src="app.js" defer></script>
 </head>
 <body>
+  <div class="loading-overlay" id="loading-overlay" hidden role="status" aria-live="polite" aria-label="Loading invoice" data-i18n-aria="loadingAria">
+    <div class="loading-mark" aria-hidden="true"></div>
+  </div>
   <div class="shell">
-    <header><div class="header-inner">
-      <div class="brand-lockup"><div class="brand-mark" aria-hidden="true">IP</div><div><div class="brand-name">INVOICE PAYMENTS</div><div class="brand-caption">Client services</div></div></div>
-      <div class="secure-pill"><span class="secure-dot"></span>Secure Payment</div>
+    <header class="site-header"><div class="header-inner">
+      <a class="brand-lockup" href="/" aria-label="A&J Management home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 48 56" role="img" focusable="false">
+            <path class="diamond-outer" d="M24 1 47 28 24 55 1 28Z"/>
+            <path class="diamond-inner" d="M24 12 36 28 24 44 12 28Z"/>
+          </svg>
+        </span>
+        <span class="brand-name">A&J MANAGEMENT</span>
+      </a>
+      <div class="secure-pill"><span class="secure-dot" aria-hidden="true"></span><span data-i18n="securePayment">Secure Payment</span></div>
     </div></header>
     <main>
       <section class="portal" aria-labelledby="page-title">
-        <p class="eyebrow">Invoice lookup</p>
-        <h1 id="page-title">Pay an invoice securely</h1>
-        <p class="subtitle">Enter the invoice number supplied with your billing notice.</p>
-        <form class="lookup" id="lookup-form">
-          <label for="invoice-number">Invoice number</label>
-          <div class="lookup-row">
-            <input id="invoice-number" name="invoiceNumber" autocomplete="off" maxlength="64" required>
-            <button type="submit">Find invoice</button>
+        <div class="lookup-panel" id="lookup-panel">
+          <h1 id="page-title" data-i18n="lookupTitle">Pay an invoice securely</h1>
+          <p class="lookup-copy" data-i18n="lookupCopy">Enter the invoice number from your payment notice to view your bill.</p>
+          <form class="lookup-form" id="lookup-form">
+            <label for="invoice-number" data-i18n="invoiceNumber">Invoice number</label>
+            <input id="invoice-number" name="invoiceNumber" autocomplete="off" autocapitalize="characters" placeholder="Enter invoice number" data-i18n-placeholder="invoicePlaceholder" required>
+            <button class="pay" type="submit" data-i18n="findInvoice">Find invoice</button>
+            <p class="message" id="lookup-message" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <div class="invoice-flow" id="invoice-flow" hidden>
+          <div class="invoice-intro">
+            <p class="eyebrow" data-i18n="invoiceReference">Invoice #INV2026001</p>
+            <h1 data-i18n="portalTitle">A&amp;J Management Legal Payment Portal</h1>
           </div>
-          <p class="message" id="lookup-message" role="status" aria-live="polite"></p>
-        </form>
-        <article class="invoice" id="invoice-card" hidden>
-          <div class="meta">
-            <div><span class="label">Client</span><span class="value" id="client-name"></span></div>
-            <div><span class="label">Due date</span><span class="value" id="due-date"></span></div>
-            <div class="wide"><span class="label">Invoice</span><span class="value" id="invoice-reference"></span></div>
-          </div>
-          <div class="payment">
-            <div class="balance-label">Balance due</div>
-            <div class="balance" id="balance"></div>
-            <div class="status" id="invoice-status"></div>
-            <button class="pay" id="pay-button" type="button">Pay Now</button>
-            <p class="payment-note">Payment is completed on a secure hosted checkout page.</p>
-          </div>
-        </article>
+          <article class="invoice" id="invoice-card">
+            <div class="meta">
+              <div><span class="label" data-i18n="client">Client</span><span class="value">Kevin Lütolf</span></div>
+              <div><span class="label" data-i18n="dueDate">Due date</span><span class="value" data-i18n="dueDateValue">September 7, 2026</span></div>
+              <div class="wide"><span class="label" data-i18n="reference">Reference</span><span class="value" data-i18n="referenceValue">Contract Termination File #KLTA2026001</span></div>
+            </div>
+            <div class="payment">
+              <div class="balance-label" data-i18n="balanceDue">Balance due</div>
+              <div class="balance"><span id="balance">$5,000.00</span> <small id="balance-currency">USD</small></div>
+              <form class="payment-form" id="payment-form">
+                <label for="currency" data-i18n="viewBalance">View balance in</label>
+                <select id="currency" name="currency">
+                  <option value="USD">USD ($)</option>
+                  <option value="CAD">CAD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="CHF">CHF (CHF)</option>
+                </select>
+                <label for="payment-amount" data-i18n="paymentAmount">Payment amount</label>
+                <div class="amount-field"><span id="amount-currency">USD</span><input id="payment-amount" value="0.00" inputmode="decimal" aria-describedby="payment-note payment-message"></div>
+                <button class="pay" id="pay-button" type="submit" data-i18n="payNow">Pay Now</button>
+                <p class="payment-note" id="payment-note" data-i18n="paymentNote">Card payments are processed securely.</p>
+                <p class="message" id="payment-message" role="status" aria-live="polite"></p>
+              </form>
+            </div>
+          </article>
+        </div>
       </section>
     </main>
     <footer><div class="footer-inner">
-      <div><strong>Invoice Payment Portal</strong><br>Secure online invoice payments</div>
-      <div class="trust"><span>🔒 SSL Secure</span><span>Secure Payment</span></div>
-      <div class="footer-bottom">Payments are confirmed only after secure provider verification.</div>
+      <div class="footer-company">
+        <div class="footer-brand"><span class="footer-brand-mark" aria-hidden="true"><svg viewBox="0 0 48 56" focusable="false"><path class="diamond-outer" d="M24 1 47 28 24 55 1 28Z"/><path class="diamond-inner" d="M24 12 36 28 24 44 12 28Z"/></svg></span><strong>A&amp;J MANAGEMENT</strong></div>
+        <span data-i18n="department">Legal Department &amp; Talent Management</span><span>Bahnhofstrasse 45, 8001 Zürich, Switzerland</span>
+      </div>
+      <div class="footer-contact"><strong data-i18n="contact">Contact</strong><span data-i18n="email">Email: legal@ajmanagement.ch</span><span data-i18n="phone">Phone: +44 333 057 1439</span><span data-i18n="hours">Hours: Mon-Fri 9:00 — 17:00 CET</span></div>
+      <div class="footer-trust"><strong data-i18n="securePayments">Secure payments</strong><span data-i18n="sslSecure">SSL Secure 🔒</span><span data-i18n="pciCompliant">PCI Compliant</span><span data-i18n="securePayment">Secure Payment</span></div>
+      <div class="footer-bottom" data-i18n="copyright">© 2026 A&amp;J Management. All rights reserved.</div>
     </div></footer>
   </div>
 </body>

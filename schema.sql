@@ -33,5 +33,19 @@ CREATE TABLE IF NOT EXISTS webhook_events (
   FOREIGN KEY (invoice_id) REFERENCES invoices(id)
 );
 
+CREATE TABLE IF NOT EXISTS invoice_payments (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  invoice_id INTEGER NOT NULL,
+  stripe_session_id TEXT NOT NULL UNIQUE,
+  stripe_payment_intent TEXT UNIQUE,
+  amount INTEGER NOT NULL CHECK (amount > 0),
+  currency TEXT NOT NULL CHECK (length(currency) = 3),
+  status TEXT NOT NULL DEFAULT 'paid' CHECK (status = 'paid'),
+  paid_at TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (invoice_id) REFERENCES invoices(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_invoices_session ON invoices(stripe_session_id);
 CREATE INDEX IF NOT EXISTS idx_webhook_invoice ON webhook_events(invoice_id);
+CREATE INDEX IF NOT EXISTS idx_invoice_payments_invoice ON invoice_payments(invoice_id);

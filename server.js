@@ -9,8 +9,19 @@ import Stripe from 'stripe';
 import { createInvoiceRepository, openDatabase } from './db.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const invoicePattern = /^[A-Z0-9][A-Z0-9]{7,63}$/;
+// Public invoice references are deliberately constrained, while allowing the
+// common hyphenated format (for example, INV-2026-001).
+const invoicePattern = /^[A-Z0-9](?:[A-Z0-9-]{0,62}[A-Z0-9])?$/;
 const sessionPattern = /^cs_(?:test_|live_)?[A-Za-z0-9]{20,}$/;
+const minimumPayment = 50_000;
+const maximumPayment = 500_000;
+
+function parsePaymentAmount(value) {
+  const text = String(value || '').trim();
+  if (!/^\d{1,4}(?:\.\d{1,2})?$/.test(text)) return null;
+  const cents = Math.round(Number(text) * 100);
+  return Number.isSafeInteger(cents) ? cents : null;
+}
 
 function required(name, env) {
   const value = env[name];
@@ -85,6 +96,16 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
   const lookupLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false });
   const checkoutLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
 
+  app.get('/api/locale', (req, res) => {
+    const configuredRegionHeader = env.GEOIP_REGION_HEADER?.toLowerCase();
+    const region = configuredRegionHeader && env.TRUST_PROXY
+      ? String(req.headers[configuredRegionHeader] || '').toUpperCase()
+      : '';
+    const preferredLanguage = String(req.headers['accept-language'] || '').toLowerCase();
+    const locale = region === 'QC' || /(^|,)\s*fr(?:[-_]ca)?\b/.test(preferredLanguage) ? 'fr-CA' : 'en';
+    res.set('Vary', 'Accept-Language').json({ locale });
+  });
+
   app.get('/api/invoices/:invoiceNumber', lookupLimiter, (req, res) => {
     const invoiceNumber = req.params.invoiceNumber.trim().toUpperCase();
     if (!invoicePattern.test(invoiceNumber)) return res.status(400).json({ error: 'Invalid invoice number' });
@@ -103,9 +124,15 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
   app.post('/api/create-checkout-session', checkoutLimiter, async (req, res) => {
     const invoiceNumber = String(req.body?.invoiceNumber || '').trim().toUpperCase();
     if (!invoicePattern.test(invoiceNumber)) return res.status(400).json({ error: 'Invalid invoice number' });
+    const paymentAmount = parsePaymentAmount(req.body?.paymentAmount);
+    if (paymentAmount === null || paymentAmount < minimumPayment || paymentAmount > maximumPayment) {
+      return res.status(400).json({ error: 'Payment amount must be between $500.00 and $5,000.00' });
+    }
     const invoice = invoices.findFull(invoiceNumber);
     if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
     if (invoice.status === 'paid') return res.status(409).json({ error: 'Invoice is already paid' });
+    const remainingBalance = invoice.amount - invoices.getPaidTotal(invoice.id);
+    if (paymentAmount > remainingBalance) return res.status(409).json({ error: 'Payment amount exceeds the remaining balance' });
     if (!invoices.acquireCheckoutLock(invoiceNumber)) return res.status(409).json({ error: 'Checkout is already being prepared. Please retry shortly.' });
 
     try {
@@ -116,7 +143,7 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
           price_data: {
             currency: invoice.currency,
             product_data: { name: `Invoice ${invoice.invoice_number}` },
-            unit_amount: invoice.amount
+            unit_amount: paymentAmount
           },
           quantity: 1
         }],
@@ -127,7 +154,7 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
         expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
         integration_identifier: integrationIdentifier
       }, {
-        idempotencyKey: `invoice-checkout-${invoice.id}-${Math.floor(Date.now() / (30 * 60 * 1000))}`
+        idempotencyKey: `invoice-checkout-${invoice.id}-${paymentAmount}-${Math.floor(Date.now() / (30 * 60 * 1000))}`
       });
       invoices.saveCheckout({
         invoiceNumber,
@@ -148,6 +175,13 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
     if (!sessionPattern.test(sessionId)) return res.status(400).json({ error: 'Invalid session identifier' });
     const invoice = invoices.findStatusBySession(sessionId);
     if (!invoice) return res.status(404).json({ error: 'Payment not found' });
+    const payment = invoices.findPaymentBySession(sessionId);
+    if (payment && invoice.status !== 'paid') {
+      return res.json({
+        status: 'partial',
+        remaining: Math.max(0, invoice.amount - invoices.getPaidTotal(invoice.id))
+      });
+    }
     return res.json({ status: invoice.status });
   });
 

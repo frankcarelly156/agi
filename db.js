@@ -19,7 +19,25 @@ export function createInvoiceRepository(db) {
     FROM invoices WHERE invoice_number = ?
   `);
   const findFull = db.prepare('SELECT * FROM invoices WHERE invoice_number = ?');
-  const findBySession = db.prepare('SELECT id, status FROM invoices WHERE stripe_session_id = ?');
+  const findBySession = db.prepare(`
+    SELECT id, status, amount FROM invoices WHERE stripe_session_id = ?
+    UNION
+    SELECT invoices.id, invoices.status, invoices.amount
+    FROM invoice_payments JOIN invoices ON invoices.id = invoice_payments.invoice_id
+    WHERE invoice_payments.stripe_session_id = ?
+  `);
+  const paidTotal = db.prepare(`
+    SELECT COALESCE(SUM(amount), 0) AS total FROM invoice_payments
+    WHERE invoice_id = ? AND status = 'paid'
+  `);
+  const findPaymentBySession = db.prepare(`
+    SELECT invoice_id, amount, currency FROM invoice_payments WHERE stripe_session_id = ?
+  `);
+  const insertPayment = db.prepare(`
+    INSERT OR IGNORE INTO invoice_payments
+      (invoice_id, stripe_session_id, stripe_payment_intent, amount, currency, paid_at)
+    VALUES (@invoiceId, @sessionId, @paymentIntent, @amount, @currency, @paidAt)
+  `);
   const acquireCheckoutLock = db.prepare(`
     UPDATE invoices
     SET checkout_lock_until = @lockUntil, updated_at = CURRENT_TIMESTAMP
@@ -59,6 +77,11 @@ export function createInvoiceRepository(db) {
         checkout_lock_until = NULL, updated_at = CURRENT_TIMESTAMP
     WHERE id = @invoiceId AND status != 'paid'
   `);
+  const recordPartialPayment = db.prepare(`
+    UPDATE invoices
+    SET checkout_lock_until = NULL, updated_at = CURRENT_TIMESTAMP
+    WHERE id = ? AND status != 'paid'
+  `);
   const markFailed = db.prepare(`
     UPDATE invoices
     SET status = 'failed', stripe_payment_intent = COALESCE(stripe_payment_intent, @paymentIntent),
@@ -88,19 +111,44 @@ export function createInvoiceRepository(db) {
       markEvent.run({ eventId: event.id, status: 'rejected', invoiceId: invoice.id, message: 'Session payment status is not paid' });
       return { rejected: true, reason: 'not_paid' };
     }
-    if (session.amount_total !== invoice.amount || session.currency?.toLowerCase() !== invoice.currency.toLowerCase()) {
+    if (!Number.isSafeInteger(session.amount_total) || session.amount_total <= 0 || session.currency?.toLowerCase() !== invoice.currency.toLowerCase()) {
       markEvent.run({ eventId: event.id, status: 'rejected', invoiceId: invoice.id, message: 'Amount or currency mismatch' });
       return { rejected: true, reason: 'amount_mismatch' };
     }
+    const alreadyPaid = paidTotal.get(invoice.id).total;
+    if (session.amount_total > invoice.amount - alreadyPaid) {
+      markEvent.run({ eventId: event.id, status: 'rejected', invoiceId: invoice.id, message: 'Payment exceeds remaining balance' });
+      return { rejected: true, reason: 'amount_exceeds_remaining' };
+    }
 
-    markPaid.run({
+    const paymentIntent = typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id;
+    const payment = insertPayment.run({
       invoiceId: invoice.id,
       sessionId: session.id,
-      paymentIntent: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
+      paymentIntent,
+      amount: session.amount_total,
+      currency: session.currency.toLowerCase(),
       paidAt: new Date(event.created * 1000).toISOString()
     });
-    markEvent.run({ eventId: event.id, status: 'processed', invoiceId: invoice.id, message: 'Invoice marked paid' });
-    return { paid: true, invoiceNumber };
+    if (payment.changes === 0) {
+      markEvent.run({ eventId: event.id, status: 'ignored', invoiceId: invoice.id, message: 'Payment already recorded' });
+      return { duplicate: true, invoice };
+    }
+
+    const totalPaid = alreadyPaid + session.amount_total;
+    if (totalPaid === invoice.amount) {
+      markPaid.run({
+        invoiceId: invoice.id,
+        sessionId: session.id,
+        paymentIntent,
+        paidAt: new Date(event.created * 1000).toISOString()
+      });
+      markEvent.run({ eventId: event.id, status: 'processed', invoiceId: invoice.id, message: 'Invoice marked paid' });
+      return { paid: true, invoiceNumber, totalPaid };
+    }
+    recordPartialPayment.run(invoice.id);
+    markEvent.run({ eventId: event.id, status: 'processed', invoiceId: invoice.id, message: 'Partial payment recorded' });
+    return { partial: true, invoiceNumber, totalPaid, remaining: invoice.amount - totalPaid };
   });
 
   const recordFailure = db.transaction((event, intent) => {
@@ -127,7 +175,9 @@ export function createInvoiceRepository(db) {
   return {
     findPublic: invoiceNumber => findPublic.get(invoiceNumber),
     findFull: invoiceNumber => findFull.get(invoiceNumber),
-    findStatusBySession: sessionId => findBySession.get(sessionId),
+    findStatusBySession: sessionId => findBySession.get(sessionId, sessionId),
+    findPaymentBySession: sessionId => findPaymentBySession.get(sessionId),
+    getPaidTotal: invoiceId => paidTotal.get(invoiceId).total,
     acquireCheckoutLock: invoiceNumber => acquireCheckoutLock.run({
       invoiceNumber,
       now: Math.floor(Date.now() / 1000),
