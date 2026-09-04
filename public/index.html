@@ -9,22 +9,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <script>
-    document.documentElement.classList.add('resetting-scroll');
-    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    const resetScrollPosition = () => {
-      document.documentElement.classList.add('resetting-scroll');
-      window.setTimeout(() => {
-        window.scrollTo(0, 0);
-        requestAnimationFrame(() => requestAnimationFrame(() => {
-          document.documentElement.classList.remove('resetting-scroll');
-        }));
-      }, 80);
-    };
-    window.addEventListener('pageshow', resetScrollPosition);
-  </script>
-  <script src="app.js" defer></script>
+  <script src="navigation.js?v=2"></script>
+  <link rel="stylesheet" href="styles.css?v=2">
+  <script src="app.js?v=2" defer></script>
 </head>
 <body>
   <div class="loading-overlay" id="loading-overlay" hidden role="status" aria-live="polite" aria-label="Loading invoice" data-i18n-aria="loadingAria" tabindex="-1">

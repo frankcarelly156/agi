@@ -100,8 +100,11 @@ lookupForm.addEventListener('submit', async event => {
     lookupButton.textContent = t('findInvoice');
     return;
   }
-  setLookupLoading(false);
   showInvoiceFlow();
+  // Position the newly rendered bill before uncovering it.
+  window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  setLookupLoading(false);
 });
 form.addEventListener('submit', async event => {
   event.preventDefault();

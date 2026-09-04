@@ -95,7 +95,11 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
     referrerPolicy: { policy: 'no-referrer' }
   }));
   app.use(express.json({ limit: '20kb' }));
-  app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'], maxAge: env.NODE_ENV === 'production' ? '1h' : 0 }));
+  app.use(express.static(path.join(__dirname, 'public'), {
+    extensions: ['html'],
+    maxAge: 0,
+    setHeaders: res => res.setHeader('Cache-Control', 'no-cache, must-revalidate')
+  }));
 
   const lookupLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 40, standardHeaders: 'draft-8', legacyHeaders: false });
   const checkoutLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: 'draft-8', legacyHeaders: false });
