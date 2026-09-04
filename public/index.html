@@ -14,10 +14,13 @@
     document.documentElement.classList.add('resetting-scroll');
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
     const resetScrollPosition = () => {
-      window.scrollTo(0, 0);
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        document.documentElement.classList.remove('resetting-scroll');
-      }));
+      document.documentElement.classList.add('resetting-scroll');
+      window.setTimeout(() => {
+        window.scrollTo(0, 0);
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          document.documentElement.classList.remove('resetting-scroll');
+        }));
+      }, 80);
     };
     window.addEventListener('pageshow', resetScrollPosition);
   </script>

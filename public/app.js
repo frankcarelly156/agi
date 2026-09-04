@@ -75,7 +75,10 @@ function setLookupLoading(isLoading) {
   loadingOverlay.hidden = !isLoading;
   shell.inert = isLoading;
   shell.setAttribute('aria-busy', String(isLoading));
-  if (isLoading) loadingOverlay.focus();
+  if (isLoading) {
+    loadingOverlay.focus();
+    window.scrollTo(0, 0);
+  }
 }
 
 currency.addEventListener('change', renderBalance);
