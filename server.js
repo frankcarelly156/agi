@@ -153,7 +153,9 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
     try {
       const checkoutWindowSeconds = 30 * 60;
       const checkoutWindow = Math.floor(Date.now() / 1000 / checkoutWindowSeconds);
-      const expiresAt = (checkoutWindow + 1) * checkoutWindowSeconds;
+      // This remains identical for retries in the same window while always
+      // satisfying Stripe's requirement of at least 30 minutes until expiry.
+      const expiresAt = (checkoutWindow + 2) * checkoutWindowSeconds;
       const session = await stripeClient.checkout.sessions.create({
         mode: 'payment',
         line_items: [{
@@ -171,7 +173,7 @@ export function createApp({ stripeClient, invoices, env = process.env, logger = 
         expires_at: expiresAt,
         integration_identifier: integrationIdentifier
       }, {
-        idempotencyKey: `invoice-checkout-v2-${invoice?.id || statelessInvoiceNumber}-${paymentAmount}-${checkoutWindow}`
+        idempotencyKey: `invoice-checkout-v3-${invoice?.id || statelessInvoiceNumber}-${paymentAmount}-${checkoutWindow}`
       });
       if (invoice) {
         invoices.saveCheckout({
