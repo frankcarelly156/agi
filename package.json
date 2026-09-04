@@ -1,0 +1,24 @@
+{
+  "name": "invoice-payment-portal",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "create-invoice": "node scripts/create-invoice.js",
+    "test": "node --test",
+    "check": "node --check server.js && node --check db.js && node --check public/app.js && node --check scripts/create-invoice.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.3",
+    "dotenv": "17.2.2",
+    "express": "5.2.1",
+    "express-rate-limit": "8.1.0",
+    "helmet": "8.1.0",
+    "stripe": "22.6.1"
+  }
+}

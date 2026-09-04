@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Secure invoice lookup and card payment portal.">
+  <title>Invoice Payment Portal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <div class="shell">
+    <header><div class="header-inner">
+      <div class="brand-lockup"><div class="brand-mark" aria-hidden="true">IP</div><div><div class="brand-name">INVOICE PAYMENTS</div><div class="brand-caption">Client services</div></div></div>
+      <div class="secure-pill"><span class="secure-dot"></span>Secure Payment</div>
+    </div></header>
+    <main>
+      <section class="portal" aria-labelledby="page-title">
+        <p class="eyebrow">Invoice lookup</p>
+        <h1 id="page-title">Pay an invoice securely</h1>
+        <p class="subtitle">Enter the invoice number supplied with your billing notice.</p>
+        <form class="lookup" id="lookup-form">
+          <label for="invoice-number">Invoice number</label>
+          <div class="lookup-row">
+            <input id="invoice-number" name="invoiceNumber" autocomplete="off" maxlength="64" required>
+            <button type="submit">Find invoice</button>
+          </div>
+          <p class="message" id="lookup-message" role="status" aria-live="polite"></p>
+        </form>
+        <article class="invoice" id="invoice-card" hidden>
+          <div class="meta">
+            <div><span class="label">Client</span><span class="value" id="client-name"></span></div>
+            <div><span class="label">Due date</span><span class="value" id="due-date"></span></div>
+            <div class="wide"><span class="label">Invoice</span><span class="value" id="invoice-reference"></span></div>
+          </div>
+          <div class="payment">
+            <div class="balance-label">Balance due</div>
+            <div class="balance" id="balance"></div>
+            <div class="status" id="invoice-status"></div>
+            <button class="pay" id="pay-button" type="button">Pay Now</button>
+            <p class="payment-note">Payment is completed on a secure hosted checkout page.</p>
+          </div>
+        </article>
+      </section>
+    </main>
+    <footer><div class="footer-inner">
+      <div><strong>Invoice Payment Portal</strong><br>Secure online invoice payments</div>
+      <div class="trust"><span>🔒 SSL Secure</span><span>Secure Payment</span></div>
+      <div class="footer-bottom">Payments are confirmed only after secure provider verification.</div>
+    </div></footer>
+  </div>
+</body>
+</html>
