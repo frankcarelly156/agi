@@ -94,6 +94,7 @@ form.addEventListener('submit', async event => {
   }
   message.textContent = '';
   payButton.disabled = true;
+  payButton.classList.add('is-loading');
   payButton.textContent = t('preparingPayment');
   try {
     // The browser submits only the invoice reference. Payment totals remain
@@ -109,6 +110,7 @@ form.addEventListener('submit', async event => {
   } catch (error) {
     message.textContent = error.message;
     payButton.disabled = false;
+    payButton.classList.remove('is-loading');
     payButton.textContent = t('payNow');
   }
 });
