@@ -12,7 +12,7 @@
   <script src="app.js" defer></script>
 </head>
 <body>
-  <div class="loading-overlay" id="loading-overlay" hidden role="status" aria-live="polite" aria-label="Loading invoice" data-i18n-aria="loadingAria">
+  <div class="loading-overlay" id="loading-overlay" hidden role="status" aria-live="polite" aria-label="Loading invoice" data-i18n-aria="loadingAria" tabindex="-1">
     <div class="loading-mark" aria-hidden="true"></div>
   </div>
   <div class="shell">
@@ -43,7 +43,7 @@
         <div class="invoice-flow" id="invoice-flow" hidden>
           <div class="invoice-intro">
             <p class="eyebrow" data-i18n="invoiceReference">Invoice #INV2026001</p>
-            <h1 data-i18n="portalTitle">A&amp;J Management Legal Payment Portal</h1>
+            <h1 id="invoice-title" tabindex="-1" data-i18n="portalTitle">A&amp;J Management Legal Payment Portal</h1>
           </div>
           <article class="invoice" id="invoice-card">
             <div class="meta">
@@ -64,7 +64,7 @@
                   <option value="CHF">CHF (CHF)</option>
                 </select>
                 <label for="payment-amount" data-i18n="paymentAmount">Payment Amount</label>
-                <div class="amount-field"><span id="amount-currency">USD</span><input id="payment-amount" value="0.00" inputmode="decimal" aria-describedby="payment-note payment-message"></div>
+                <div class="amount-field"><span id="amount-currency">USD</span><input id="payment-amount" type="number" min="500" max="5000" step="0.01" value="0.00" inputmode="decimal" aria-describedby="payment-note payment-message" required></div>
                 <button class="pay" id="pay-button" type="submit" data-i18n="payNow">Pay Now</button>
                 <p class="payment-note" id="payment-note" data-i18n="paymentNote">Card payments are processed securely.</p>
                 <p class="message" id="payment-message" role="status" aria-live="polite"></p>

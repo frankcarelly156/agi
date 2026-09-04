@@ -41,6 +41,7 @@ const lookupInput = document.getElementById('invoice-number');
 const lookupMessage = document.getElementById('lookup-message');
 const lookupButton = lookupForm.querySelector('button[type="submit"]');
 const loadingOverlay = document.getElementById('loading-overlay');
+const shell = document.querySelector('.shell');
 const invoiceFlow = document.getElementById('invoice-flow');
 const form = document.getElementById('payment-form');
 const currency = document.getElementById('currency');
@@ -69,34 +70,44 @@ function showInvoiceFlow() {
   invoiceFlow.hidden = false;
 }
 
+function setLookupLoading(isLoading) {
+  loadingOverlay.hidden = !isLoading;
+  shell.inert = isLoading;
+  shell.setAttribute('aria-busy', String(isLoading));
+  if (isLoading) loadingOverlay.focus();
+}
+
 currency.addEventListener('change', renderBalance);
 lookupForm.addEventListener('submit', async event => {
   event.preventDefault();
   lookupButton.disabled = true;
   lookupButton.textContent = t('findingInvoice');
   lookupMessage.textContent = '';
-  loadingOverlay.hidden = false;
+  setLookupLoading(true);
   await new Promise(resolve => setTimeout(resolve, 2000));
   const enteredInvoice = lookupInput.value.trim().toUpperCase().replace(/^#/, '');
   if (enteredInvoice !== 'INV2026001') {
-    loadingOverlay.hidden = true;
+    setLookupLoading(false);
     lookupMessage.textContent = t('invoiceNotFound');
     lookupButton.disabled = false;
     lookupButton.textContent = t('findInvoice');
     return;
   }
-  loadingOverlay.hidden = true;
+  setLookupLoading(false);
   showInvoiceFlow();
-  document.getElementById('currency').focus();
+  document.getElementById('invoice-title').focus({ preventScroll: true });
 });
 form.addEventListener('submit', async event => {
   event.preventDefault();
   const paymentAmount = Number(amountInput.value.replace(/,/g, '').trim());
   if (!Number.isFinite(paymentAmount) || paymentAmount < 500 || paymentAmount > 5000) {
     message.textContent = t('amountRange');
+    amountInput.setAttribute('aria-invalid', 'true');
+    amountInput.focus();
     return;
   }
   message.textContent = '';
+  amountInput.removeAttribute('aria-invalid');
   payButton.disabled = true;
   payButton.classList.add('is-loading');
   payButton.textContent = t('preparingPayment');
