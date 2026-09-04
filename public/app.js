@@ -65,6 +65,7 @@ function renderBalance() {
 }
 
 function showInvoiceFlow() {
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
   lookupMessage.textContent = '';
   lookupPanel.hidden = true;
   invoiceFlow.hidden = false;
@@ -95,7 +96,6 @@ lookupForm.addEventListener('submit', async event => {
   }
   setLookupLoading(false);
   showInvoiceFlow();
-  document.getElementById('invoice-title').focus({ preventScroll: true });
 });
 form.addEventListener('submit', async event => {
   event.preventDefault();
