@@ -79,6 +79,9 @@ function setLookupLoading(isLoading) {
 }
 
 currency.addEventListener('change', renderBalance);
+amountInput.addEventListener('focus', () => {
+  if (Number(amountInput.value) === 0) amountInput.value = '';
+});
 lookupForm.addEventListener('submit', async event => {
   event.preventDefault();
   lookupButton.disabled = true;
