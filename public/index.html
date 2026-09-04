@@ -11,8 +11,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <script>
+    document.documentElement.classList.add('resetting-scroll');
     if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-    window.scrollTo(0, 0);
+    const resetScrollPosition = () => {
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        document.documentElement.classList.remove('resetting-scroll');
+      }));
+    };
+    window.addEventListener('pageshow', resetScrollPosition);
   </script>
   <script src="app.js" defer></script>
 </head>
